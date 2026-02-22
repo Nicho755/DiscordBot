@@ -4,10 +4,22 @@ from discord.ui import View, Button
 import json
 import random
 import os
+from flask import Flask
+from threading import Thread
 
-# -------------------- Intents --------------------
-# Using only default intents - no privileged intents needed
+# -------------------- Keep-Alive Server --------------------
+app = Flask("")
+
+@app.route("/")
+def home():
+    return "Bot is alive!"
+
+# Start Flask in a separate thread BEFORE running the bot
+Thread(target=lambda: app.run(host="0.0.0.0", port=8080)).start()
+
+# -------------------- Intents and Bot --------------------
 intents = discord.Intents.default()
+intents.message_content = True  # needed for commands if you ever use text commands
 client = commands.Bot(command_prefix="!", intents=intents)
 tree = client.tree
 
@@ -42,7 +54,7 @@ def load_data():
 
 load_data()
 
-# -------------------- /create Command --------------------
+# -------------------- Slash Commands --------------------
 @tree.command(name="create", description="Create a new tournament")
 async def create(interaction: discord.Interaction, name: str):
     tournament["name"] = name
@@ -50,9 +62,8 @@ async def create(interaction: discord.Interaction, name: str):
     tournament["matches"] = []
     tournament["started"] = False
     save_data()
-    await interaction.response.send_message(f"??? Tournament **{name}** created! Use /panel to manage it.")
+    await interaction.response.send_message(f"?? Tournament **{name}** created! Use /panel to manage it.")
 
-# -------------------- /panel Command --------------------
 @tree.command(name="panel", description="Show tournament buttons")
 async def panel(interaction: discord.Interaction):
     if not tournament["name"]:
@@ -99,7 +110,7 @@ async def panel(interaction: discord.Interaction):
         tournament["started"] = True
         save_data()
 
-        msg = "??? **Round 1 Matches:**\n"
+        msg = "?? **Round 1 Matches:**\n"
         for match in matches:
             if len(match) == 2:
                 msg += f"<@{match[0]}> vs <@{match[1]}>\n"
@@ -146,32 +157,20 @@ async def panel(interaction: discord.Interaction):
             return
         player_list = "\n".join([f"<@{p}>" for p in tournament["players"]])
         await button_interaction.response.send_message(
-            f"??? Tournament **{tournament['name']}** has **{num_players}** players signed up:\n{player_list}",
+            f"?? Tournament **{tournament['name']}** has **{num_players}** players signed up:\n{player_list}",
             ephemeral=True
         )
     view_players_button.callback = view_players_callback
     view.add_item(view_players_button)
 
     # Send Panel
-    await interaction.response.send_message(f"??? **Tournament Panel for {tournament['name']}**", view=view)
+    await interaction.response.send_message(f"?? **Tournament Panel for {tournament['name']}**", view=view)
 
-# Bot Ready
+# -------------------- Bot Ready --------------------
 @client.event
 async def on_ready():
     print(f"Logged in as {client.user}")
     await tree.sync()
 
-# Run Bot
-
+# -------------------- Run Bot --------------------
 client.run(os.getenv("DISCORD_TOKEN"))
-
-from flask import Flask
-from threading import Thread
-
-app = Flask("")
-
-@app.route("/")
-def home():
-    return "Bot is alive!"
-
-Thread(target=lambda: app.run(host="0.0.0.0", port=8080)).start()
