@@ -164,3 +164,14 @@ async def on_ready():
 # Run Bot
 
 client.run(os.getenv("DISCORD_TOKEN"))
+
+from flask import Flask
+from threading import Thread
+
+app = Flask("")
+
+@app.route("/")
+def home():
+    return "Bot is alive!"
+
+Thread(target=lambda: app.run(host="0.0.0.0", port=8080)).start()
