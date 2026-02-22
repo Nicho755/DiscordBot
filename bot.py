@@ -14,17 +14,16 @@ app = Flask("")
 def home():
     return "Bot is alive!"
 
-# Start Flask in a separate thread BEFORE running the bot
 Thread(target=lambda: app.run(host="0.0.0.0", port=8080)).start()
 
 # -------------------- Intents and Bot --------------------
 intents = discord.Intents.default()
-intents.message_content = True  # needed for commands if you ever use text commands
+intents.message_content = True
 client = commands.Bot(command_prefix="!", intents=intents)
 tree = client.tree
 
-# -------------------- Data Handling --------------------
-FILENAME = os.path.join(os.path.dirname(__file__), "tournament.json")
+# -------------------- Data --------------------
+FILENAME = "tournament.json"
 
 tournament = {
     "name": None,
@@ -34,23 +33,16 @@ tournament = {
 }
 
 def save_data():
-    try:
-        with open(FILENAME, "w") as f:
-            json.dump(tournament, f)
-    except Exception as e:
-        print("Error saving tournament.json:", e)
+    with open(FILENAME, "w") as f:
+        json.dump(tournament, f)
 
 def load_data():
     global tournament
-    try:
-        if not os.path.exists(FILENAME):
-            with open(FILENAME, "w") as f:
-                json.dump(tournament, f)
-        else:
-            with open(FILENAME, "r") as f:
-                tournament = json.load(f)
-    except Exception as e:
-        print("Error loading tournament.json:", e)
+    if not os.path.exists(FILENAME):
+        save_data()
+    else:
+        with open(FILENAME, "r") as f:
+            tournament = json.load(f)
 
 load_data()
 
@@ -98,14 +90,13 @@ async def panel(interaction: discord.Interaction):
             await button_interaction.response.send_message("Not enough players!", ephemeral=True)
             return
 
-        # 1v1 pairing
         random.shuffle(tournament["players"])
         matches = []
         for i in range(0, len(tournament["players"]), 2):
-            if i + 1 < len(tournament["players"]):
+            if i+1 < len(tournament["players"]):
                 matches.append([tournament["players"][i], tournament["players"][i+1]])
             else:
-                matches.append([tournament["players"][i]])  # bye for odd player
+                matches.append([tournament["players"][i]])
         tournament["matches"] = matches
         tournament["started"] = True
         save_data()
@@ -136,7 +127,6 @@ async def panel(interaction: discord.Interaction):
             await button_interaction.response.send_message("You are not in a current match!", ephemeral=True)
             return
 
-        # Advance winner
         tournament["players"] = [user_id]
         tournament["matches"] = []
         tournament["started"] = False
@@ -148,9 +138,6 @@ async def panel(interaction: discord.Interaction):
     # View Players Button
     view_players_button = Button(label="View Players", style=discord.ButtonStyle.gray)
     async def view_players_callback(button_interaction: discord.Interaction):
-        if not tournament["name"]:
-            await button_interaction.response.send_message("No tournament exists.", ephemeral=True)
-            return
         num_players = len(tournament["players"])
         if num_players == 0:
             await button_interaction.response.send_message("No players have joined yet.", ephemeral=True)
@@ -163,8 +150,12 @@ async def panel(interaction: discord.Interaction):
     view_players_button.callback = view_players_callback
     view.add_item(view_players_button)
 
-    # Send Panel
     await interaction.response.send_message(f"?? **Tournament Panel for {tournament['name']}**", view=view)
+
+# -------------------- Ping Test --------------------
+@tree.command(name="ping", description="Check if bot is online")
+async def ping(interaction: discord.Interaction):
+    await interaction.response.send_message("Pong!")
 
 # -------------------- Bot Ready --------------------
 @client.event
